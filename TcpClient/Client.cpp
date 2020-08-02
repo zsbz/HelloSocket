@@ -7,6 +7,42 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+enum CMD
+{
+	CMD_LOGIN,
+	CMD_LOGIN_OUT,
+	CMD_ERROR
+};
+
+// 包头
+struct DataHeader
+{
+	short dataLength; // 包长
+	short cmd;		  // 请求类型
+};
+
+// 登录 DataPackage
+struct Login
+{
+	char userName[32];
+	char password[32];
+};
+
+struct LoginResult
+{
+	int result;
+};
+
+struct Loginout
+{
+	char userName[32];
+};
+
+struct LoginoutResult
+{
+	char userName[32];
+};
+
 int main()
 {
 	// 启动Windows socket 2.x环境
@@ -51,18 +87,40 @@ int main()
 		{
 			break;
 		}
-		else
+		else if (0 == strcmp(cmdBuf, "login"))
 		{
 			// 5.发送请求命令给服务器
-			send(_sock, cmdBuf, strlen(cmdBuf) + 1, 0);
-		}
+			Login login = { "刘德华", "123456" };
+			DataHeader header = { sizeof(login), CMD_LOGIN};
 
-		// 6.接收服务器信息
-		char recvBuf[256] = {};
-		int nlen = recv(_sock, recvBuf, 256, 0);
-		if (nlen > 0)
+			send(_sock, (const char *)&header, sizeof(header), 0);
+			send(_sock, (const char *)&login, sizeof(Login), 0);
+
+			// 接收服务器返回数据
+			DataHeader resultHeader = {};
+			LoginResult loginResult = {};
+			recv(_sock, (char *)&resultHeader, sizeof(resultHeader), 0);
+			recv(_sock, (char *)&loginResult, sizeof(loginResult), 0);
+			printf("LoginResult：%d \n", loginResult.result);
+		}
+		else if (0 == strcmp(cmdBuf, "loginout"))
 		{
-			printf("接收到的数据：%s \n", recvBuf);
+			// 5.发送请求命令给服务器
+			Loginout loginout = { "刘德华"};
+			DataHeader header = { sizeof(loginout), CMD_LOGIN_OUT};
+			send(_sock, (const char *)&header, sizeof(DataHeader), 0);
+			send(_sock, (const char *)&loginout, sizeof(Loginout), 0);
+
+			// 接收服务器返回数据
+			DataHeader resultHeader = {};
+			LoginoutResult loginoutResult = {};
+			recv(_sock, (char *)&resultHeader, sizeof(resultHeader), 0);
+			recv(_sock, (char *)&loginoutResult, sizeof(loginoutResult), 0);
+			printf("LoginoutResult：%s \n", loginoutResult.userName);
+		} 
+		else
+		{
+			printf("不支持的命令。\n");
 		}
 	}
 

@@ -7,6 +7,42 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+enum CMD
+{
+	CMD_LOGIN,
+	CMD_LOGIN_OUT,
+	CMD_ERROR
+};
+
+// 包头
+struct DataHeader
+{
+	short dataLength; // 包长
+	short cmd;		  // 请求类型
+};
+
+// 登录 DataPackage
+struct Login
+{
+	char userName[32];
+	char password[32];
+};
+
+struct LoginResult
+{
+	int result;
+};
+
+struct Loginout
+{
+	char userName[32];
+};
+
+struct LoginoutResult
+{
+	char userName[32];
+};
+
 int main()
 {
 	// 启动Windows socket 2.x环境
@@ -55,29 +91,48 @@ int main()
 	char _recvBuf[128] = {};
 	while (true)
 	{
+		DataHeader header = {};
 		// 5.接收客户端数据
-		int nLen = recv(_clientSock, _recvBuf, 128, 0);
+		int nLen = recv(_clientSock, (char *)&header, sizeof(DataHeader), 0);
 		if (nLen <= 0)
 		{
 			printf("客户端退出，任务结束");
 			break;
 		}
-		printf("收到命令：%s\n", _recvBuf);
-		// 6.处理请求，根据不同请求发送不同数据
-		if (0 == strcmp(_recvBuf, "getName"))
+		printf("收到命令：%d, 数据长度：%d\n", header.cmd, header.dataLength);
+
+		switch (header.cmd)
 		{
-			char msgBuf[] = "刘德华";
-			send(_clientSock, msgBuf, strlen(msgBuf) + 1, 0);
+		case CMD_LOGIN:
+		{
+			// 接收登录信息
+			Login login = {};
+			recv(_clientSock, (char *)&login, sizeof(Login), 0);
+			// 判断用户名密码正确
+
+			// 返回登录结果  先发头
+			send(_clientSock, (const char *)&header, sizeof(DataHeader), 0);
+			LoginResult result = { 1 };
+			send(_clientSock, (const char *)&result, sizeof(LoginResult), 0);
 		}
-		else if (0 == strcmp(_recvBuf, "getAge"))
+		break;
+		case CMD_LOGIN_OUT:
 		{
-			char msgBuf[] = "18";
-			send(_clientSock, msgBuf, strlen(msgBuf) + 1, 0);
+			// 接收登出信息
+			Loginout loginout = {};
+			recv(_clientSock, (char *)&loginout, sizeof(Loginout), 0);
+
+			// 返回登出结果  先发头
+			LoginoutResult result = { "成功" };
+			send(_clientSock, (const char *)&header, sizeof(DataHeader), 0);
+			send(_clientSock, (const char *)&result, sizeof(LoginoutResult), 0);
 		}
-		else
-		{
-			char defaultMsgBuf[] = "Hellow, I'm Server";
-			send(_clientSock, defaultMsgBuf, strlen(defaultMsgBuf) + 1, 0);
+		break;
+		default:
+			header.cmd = CMD_ERROR;
+			header.dataLength = 0;
+			send(_clientSock, (const char *)&header, sizeof(DataHeader), 0);
+			break;
 		}
 	}
 
