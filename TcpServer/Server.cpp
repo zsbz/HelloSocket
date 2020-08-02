@@ -10,7 +10,9 @@
 enum CMD
 {
 	CMD_LOGIN,
-	CMD_LOGIN_OUT,
+	CMD_LOGIN_RESULT,
+	CMD_LOGINOUT,
+	CMD_LOGINOUT_RESULT,
 	CMD_ERROR
 };
 
@@ -22,25 +24,47 @@ struct DataHeader
 };
 
 // 登录 DataPackage
-struct Login
+struct Login: public DataHeader
 {
+	Login()
+	{
+		dataLength = sizeof(Login);
+		cmd = CMD_LOGIN;
+	}
 	char userName[32];
 	char password[32];
 };
 
-struct LoginResult
+struct LoginResult: public DataHeader
 {
+	LoginResult()
+	{
+		dataLength = sizeof(LoginResult);
+		cmd = CMD_LOGIN_RESULT;
+		result = 0;
+	}
 	int result;
 };
 
-struct Loginout
+struct Loginout: public DataHeader
 {
+	Loginout()
+	{
+		dataLength = sizeof(Loginout);
+		cmd = CMD_LOGINOUT;
+	}
 	char userName[32];
 };
 
-struct LoginoutResult
+struct LoginoutResult : public DataHeader
 {
-	char userName[32];
+	LoginoutResult()
+	{
+		dataLength = sizeof(LoginoutResult);
+		cmd = CMD_LOGINOUT_RESULT;
+		result = 0;
+	}
+	int result = 1;
 };
 
 int main()
@@ -92,39 +116,38 @@ int main()
 	while (true)
 	{
 		DataHeader header = {};
-		// 5.接收客户端数据
+		// 5.接收客户端数据		先接收头，通过头来判断接收的什么命令
 		int nLen = recv(_clientSock, (char *)&header, sizeof(DataHeader), 0);
 		if (nLen <= 0)
 		{
 			printf("客户端退出，任务结束");
 			break;
 		}
-		printf("收到命令：%d, 数据长度：%d\n", header.cmd, header.dataLength);
 
 		switch (header.cmd)
 		{
 		case CMD_LOGIN:
 		{
-			// 接收登录信息
+			// 接收登录信息		上面已经接收到了头，需要进行偏移，减去头的长度
 			Login login = {};
-			recv(_clientSock, (char *)&login, sizeof(Login), 0);
+			recv(_clientSock, (char *)&login + sizeof(DataHeader), sizeof(Login) - sizeof(DataHeader), 0); 
+			printf("收到命令：登录命令, 数据长度：%d, 用户名：%s 密码：%s\n", login.dataLength, login.userName, login.password);
 			// 判断用户名密码正确
 
-			// 返回登录结果  先发头
-			send(_clientSock, (const char *)&header, sizeof(DataHeader), 0);
-			LoginResult result = { 1 };
+			// 返回登录结果
+			LoginResult result;
 			send(_clientSock, (const char *)&result, sizeof(LoginResult), 0);
 		}
 		break;
-		case CMD_LOGIN_OUT:
+		case CMD_LOGINOUT:
 		{
 			// 接收登出信息
 			Loginout loginout = {};
-			recv(_clientSock, (char *)&loginout, sizeof(Loginout), 0);
+			recv(_clientSock, (char *)&loginout + sizeof(DataHeader), sizeof(Loginout) - sizeof(DataHeader), 0);
+			printf("收到命令：登出命令, 数据长度：%d, 用户名：%s\n", loginout.dataLength, loginout.userName);
 
-			// 返回登出结果  先发头
-			LoginoutResult result = { "成功" };
-			send(_clientSock, (const char *)&header, sizeof(DataHeader), 0);
+			// 返回登出结果
+			LoginoutResult result;
 			send(_clientSock, (const char *)&result, sizeof(LoginoutResult), 0);
 		}
 		break;

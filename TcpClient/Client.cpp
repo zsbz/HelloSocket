@@ -10,7 +10,9 @@
 enum CMD
 {
 	CMD_LOGIN,
-	CMD_LOGIN_OUT,
+	CMD_LOGIN_RESULT,
+	CMD_LOGINOUT,
+	CMD_LOGINOUT_RESULT,
 	CMD_ERROR
 };
 
@@ -22,25 +24,47 @@ struct DataHeader
 };
 
 // 登录 DataPackage
-struct Login
+struct Login : public DataHeader
 {
+	Login()
+	{
+		dataLength = sizeof(Login);
+		cmd = CMD_LOGIN;
+	}
 	char userName[32];
 	char password[32];
 };
 
-struct LoginResult
+struct LoginResult : public DataHeader
 {
+	LoginResult()
+	{
+		dataLength = sizeof(LoginResult);
+		cmd = CMD_LOGIN_RESULT;
+		result = 0;
+	}
 	int result;
 };
 
-struct Loginout
+struct Loginout : public DataHeader
 {
+	Loginout()
+	{
+		dataLength = sizeof(Loginout);
+		cmd = CMD_LOGINOUT;
+	}
 	char userName[32];
 };
 
-struct LoginoutResult
+struct LoginoutResult : public DataHeader
 {
-	char userName[32];
+	LoginoutResult()
+	{
+		dataLength = sizeof(LoginoutResult);
+		cmd = CMD_LOGINOUT_RESULT;
+		result = 0;
+	}
+	int result = 1;
 };
 
 int main()
@@ -90,33 +114,28 @@ int main()
 		else if (0 == strcmp(cmdBuf, "login"))
 		{
 			// 5.发送请求命令给服务器
-			Login login = { "刘德华", "123456" };
-			DataHeader header = { sizeof(login), CMD_LOGIN};
+			Login login;
+			strcpy(login.userName, "刘德华");
+			strcpy(login.password, "123456");
 
-			send(_sock, (const char *)&header, sizeof(header), 0);
 			send(_sock, (const char *)&login, sizeof(Login), 0);
 
 			// 接收服务器返回数据
-			DataHeader resultHeader = {};
 			LoginResult loginResult = {};
-			recv(_sock, (char *)&resultHeader, sizeof(resultHeader), 0);
 			recv(_sock, (char *)&loginResult, sizeof(loginResult), 0);
-			printf("LoginResult：%d \n", loginResult.result);
+			printf("登录结果：%d \n", loginResult.result);
 		}
 		else if (0 == strcmp(cmdBuf, "loginout"))
 		{
 			// 5.发送请求命令给服务器
-			Loginout loginout = { "刘德华"};
-			DataHeader header = { sizeof(loginout), CMD_LOGIN_OUT};
-			send(_sock, (const char *)&header, sizeof(DataHeader), 0);
+			Loginout loginout;
+			strcpy(loginout.userName, "刘德华");
 			send(_sock, (const char *)&loginout, sizeof(Loginout), 0);
 
 			// 接收服务器返回数据
-			DataHeader resultHeader = {};
 			LoginoutResult loginoutResult = {};
-			recv(_sock, (char *)&resultHeader, sizeof(resultHeader), 0);
 			recv(_sock, (char *)&loginoutResult, sizeof(loginoutResult), 0);
-			printf("LoginoutResult：%s \n", loginoutResult.userName);
+			printf("登出结果：%d \n", loginoutResult.result);
 		} 
 		else
 		{
