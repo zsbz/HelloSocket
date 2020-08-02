@@ -24,7 +24,7 @@ struct DataHeader
 };
 
 // 登录 DataPackage
-struct Login: public DataHeader
+struct Login : public DataHeader
 {
 	Login()
 	{
@@ -35,7 +35,7 @@ struct Login: public DataHeader
 	char password[32];
 };
 
-struct LoginResult: public DataHeader
+struct LoginResult : public DataHeader
 {
 	LoginResult()
 	{
@@ -46,7 +46,7 @@ struct LoginResult: public DataHeader
 	int result;
 };
 
-struct Loginout: public DataHeader
+struct Loginout : public DataHeader
 {
 	Loginout()
 	{
@@ -115,23 +115,26 @@ int main()
 	char _recvBuf[128] = {};
 	while (true)
 	{
-		DataHeader header = {};
+		// 缓冲区
+		char szRecv[1024] = {};
+
 		// 5.接收客户端数据		先接收头，通过头来判断接收的什么命令
-		int nLen = recv(_clientSock, (char *)&header, sizeof(DataHeader), 0);
+		int nLen = recv(_clientSock, szRecv, sizeof(DataHeader), 0);
+		DataHeader *header = (DataHeader *)szRecv;
 		if (nLen <= 0)
 		{
 			printf("客户端退出，任务结束");
 			break;
 		}
 
-		switch (header.cmd)
+		switch (header->cmd)
 		{
 		case CMD_LOGIN:
 		{
 			// 接收登录信息		上面已经接收到了头，需要进行偏移，减去头的长度
-			Login login = {};
-			recv(_clientSock, (char *)&login + sizeof(DataHeader), sizeof(Login) - sizeof(DataHeader), 0); 
-			printf("收到命令：登录命令, 数据长度：%d, 用户名：%s 密码：%s\n", login.dataLength, login.userName, login.password);
+			recv(_clientSock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+			Login *login = (Login*)szRecv;
+			printf("收到命令：登录命令, 数据长度：%d, 用户名：%s 密码：%s\n", login->dataLength, login->userName, login->password);
 			// 判断用户名密码正确
 
 			// 返回登录结果
@@ -142,9 +145,9 @@ int main()
 		case CMD_LOGINOUT:
 		{
 			// 接收登出信息
-			Loginout loginout = {};
-			recv(_clientSock, (char *)&loginout + sizeof(DataHeader), sizeof(Loginout) - sizeof(DataHeader), 0);
-			printf("收到命令：登出命令, 数据长度：%d, 用户名：%s\n", loginout.dataLength, loginout.userName);
+			recv(_clientSock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+			Loginout *loginout = (Loginout *)szRecv;
+			printf("收到命令：登出命令, 数据长度：%d, 用户名：%s\n", loginout->dataLength, loginout->userName);
 
 			// 返回登出结果
 			LoginoutResult result;
@@ -152,10 +155,11 @@ int main()
 		}
 		break;
 		default:
-			header.cmd = CMD_ERROR;
-			header.dataLength = 0;
+		{
+			DataHeader header = { 0, CMD_ERROR };
 			send(_clientSock, (const char *)&header, sizeof(DataHeader), 0);
-			break;
+		}
+		break;
 		}
 	}
 
