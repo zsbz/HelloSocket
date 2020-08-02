@@ -13,6 +13,7 @@ enum CMD
 	CMD_LOGIN_RESULT,
 	CMD_LOGINOUT,
 	CMD_LOGINOUT_RESULT,
+	CMD_NEW_USER_JOIN,
 	CMD_ERROR
 };
 
@@ -64,8 +65,65 @@ struct LoginoutResult : public DataHeader
 		cmd = CMD_LOGINOUT_RESULT;
 		result = 0;
 	}
-	int result = 1;
+	int result;
 };
+
+struct NewUserJoin : public DataHeader
+{
+	NewUserJoin()
+	{
+		dataLength = sizeof(NewUserJoin);
+		cmd = CMD_NEW_USER_JOIN;
+		scokId = 0;
+	}
+	int scokId;
+};
+
+int processor(SOCKET _sock)
+{
+	// 缓冲区
+	char szRecv[1024] = {};
+
+	// 5.接收客户端数据		先接收头，通过头来判断接收的什么命令
+	int nLen = recv(_sock, szRecv, sizeof(DataHeader), 0);
+	DataHeader *header = (DataHeader *)szRecv;
+	if (nLen <= 0)
+	{
+		printf("与服务器断开连接，任务结束\n");
+		return -1;
+	}
+
+	switch (header->cmd)
+	{
+	case CMD_LOGIN_RESULT:
+	{
+		recv(_sock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+		LoginResult *loginRes = (LoginResult*)szRecv;
+		printf("收到服务器消息：登录结果, 数据长度：%d\n", loginRes->dataLength);
+	}
+	break;
+	case CMD_LOGINOUT_RESULT:
+	{
+		recv(_sock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+		LoginoutResult *loginoutRes = (LoginoutResult*)szRecv;
+		printf("收到服务器消息：登出结果, 数据长度：%d\n", loginoutRes->dataLength);
+	}
+	break;
+	case CMD_NEW_USER_JOIN:
+	{
+		recv(_sock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+		NewUserJoin *userJoin = (NewUserJoin*)szRecv;
+		printf("收到服务器消息：新用户加入, 数据长度：%d\n", userJoin->dataLength);
+	}
+	break;
+	default:
+	{
+		DataHeader header = { 0, CMD_ERROR };
+		send(_sock, (const char *)&header, sizeof(DataHeader), 0);
+	}
+	break;
+	}
+}
 
 int main()
 {
@@ -103,46 +161,36 @@ int main()
 	// 循环输入请求命令
 	while (true)
 	{
-		// 3.输入请求命令
-		char cmdBuf[128] = {};
-		scanf("%s", cmdBuf);
-		// 4.处理请求命令
-		if (0 == strcmp(cmdBuf, "exit"))
+		fd_set fdReads;
+		FD_ZERO(&fdReads);
+		FD_SET(_sock, &fdReads);
+
+		timeval timeva = { 1, 0 };
+		int res = select(_sock, &fdReads, 0, 0, &timeva);
+		if (res < 0)
 		{
+			printf("select任务结束1\n");
 			break;
 		}
-		else if (0 == strcmp(cmdBuf, "login"))
+
+		if (FD_ISSET(_sock, &fdReads))
 		{
-			// 5.发送请求命令给服务器
-			Login login;
-			strcpy(login.userName, "刘德华");
-			strcpy(login.password, "123456");
-
-			send(_sock, (const char *)&login, sizeof(Login), 0);
-
-			// 接收服务器返回数据
-			LoginResult loginResult = {};
-			recv(_sock, (char *)&loginResult, sizeof(loginResult), 0);
-			printf("登录结果：%d \n", loginResult.result);
+			FD_CLR(_sock, &fdReads); 
+			if (-1 == processor(_sock))
+			{
+				printf("select任务结束2\n");
+				break;
+			}
 		}
-		else if (0 == strcmp(cmdBuf, "loginout"))
-		{
-			// 5.发送请求命令给服务器
-			Loginout loginout;
-			strcpy(loginout.userName, "刘德华");
-			send(_sock, (const char *)&loginout, sizeof(Loginout), 0);
 
-			// 接收服务器返回数据
-			LoginoutResult loginoutResult = {};
-			recv(_sock, (char *)&loginoutResult, sizeof(loginoutResult), 0);
-			printf("登出结果：%d \n", loginoutResult.result);
-		} 
-		else
-		{
-			printf("不支持的命令。\n");
-		}
+		printf("空闲时间处理其他业务\n");
+		Login login;
+		strcpy(login.userName, "刘德华");
+		strcpy(login.password, "123456");
+		send(_sock, (const char*)&login, sizeof(Login), 0);
+
+		Sleep(1000);
 	}
-
 
 	// 7.关闭套接字
 	closesocket(_sock);

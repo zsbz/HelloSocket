@@ -15,6 +15,7 @@ enum CMD
 	CMD_LOGIN_RESULT,
 	CMD_LOGINOUT,
 	CMD_LOGINOUT_RESULT,
+	CMD_NEW_USER_JOIN,
 	CMD_ERROR
 };
 
@@ -66,7 +67,18 @@ struct LoginoutResult : public DataHeader
 		cmd = CMD_LOGINOUT_RESULT;
 		result = 0;
 	}
-	int result = 1;
+	int result;
+};
+
+struct NewUserJoin : public DataHeader
+{
+	NewUserJoin()
+	{
+		dataLength = sizeof(NewUserJoin);
+		cmd = CMD_NEW_USER_JOIN;
+		scokId = 0;
+	}
+	int scokId;
 };
 
 // 储存连接的客户端socket
@@ -82,7 +94,7 @@ int processor(SOCKET _clientSock)
 	DataHeader *header = (DataHeader *)szRecv;
 	if (nLen <= 0)
 	{
-		printf("客户端退出，任务结束\n");
+		printf("客户端<Socket=%d>退出，任务结束\n", _clientSock);
 		return -1;
 	}
 
@@ -93,7 +105,7 @@ int processor(SOCKET _clientSock)
 		// 接收登录信息		上面已经接收到了头，需要进行偏移，减去头的长度
 		recv(_clientSock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
 		Login *login = (Login*)szRecv;
-		printf("收到命令：登录命令, 数据长度：%d, 用户名：%s 密码：%s\n", login->dataLength, login->userName, login->password);
+		printf("收到客户端<Socket=%d>命令：登录命令, 数据长度：%d, 用户名：%s 密码：%s\n", _clientSock, login->dataLength, login->userName, login->password);
 		// 判断用户名密码正确
 
 		// 返回登录结果
@@ -106,7 +118,7 @@ int processor(SOCKET _clientSock)
 		// 接收登出信息
 		recv(_clientSock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
 		Loginout *loginout = (Loginout *)szRecv;
-		printf("收到命令：登出命令, 数据长度：%d, 用户名：%s\n", loginout->dataLength, loginout->userName);
+		printf("收到客户端<Socket=%d>命令：登出命令, 数据长度：%d, 用户名：%s\n", _clientSock, loginout->dataLength, loginout->userName);
 
 		// 返回登出结果
 		LoginoutResult result;
@@ -175,7 +187,7 @@ int main()
 			FD_SET(g_clients[n], &fdRead);
 		}
 
-		timeval timeva = { 0, 0 }; // {秒，微秒}
+		timeval timeva = { 1, 0 }; // {秒，微秒}
 
 		// select函数调用后，把可读的socket放入fdRead，把可写的socket放入fdWrite
 		// nfds是一个整数值，是指fd_set集合中所有描述符（socket）的范围，既是所有文件描述符最大值+1，Windows下没有意义，可以写0
@@ -203,6 +215,12 @@ int main()
 			{
 				printf("错误，接收到无效的客户端socket\n");
 			}
+
+			for (int n = (int)g_clients.size() - 1; n >= 0; --n)
+			{
+				NewUserJoin userJoin;
+				send(g_clients[n], (const char *)&userJoin, sizeof(NewUserJoin), 0);
+			}
 			// 储存新加入的客户端
 			g_clients.push_back(_clientSock);
 			printf("新客户端加入：socket = %d, IP = %s \n", (int)_clientSock, inet_ntoa(clientAddr.sin_addr));
@@ -222,6 +240,8 @@ int main()
 				}
 			}
 		}
+
+		printf("空闲时间处理其他业务\n");
 	}
 
 	// 7.关闭所有套接字
