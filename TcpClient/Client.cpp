@@ -5,6 +5,8 @@
 #include <Windows.h>
 #include <WinSock2.h>
 
+#include <thread>
+
 #pragma comment(lib, "ws2_32.lib")
 
 enum CMD
@@ -125,6 +127,40 @@ int processor(SOCKET _sock)
 	}
 }
 
+bool g_bRun = false;
+
+void cmdThread(SOCKET _sock)
+{
+	while (true)
+	{
+		char cmdBuf[256] = {};
+		scanf("%s", cmdBuf);
+		if (0 == strcmp(cmdBuf, "exit"))
+		{
+			g_bRun = false;
+			printf("退出cmdThread线程\n");
+			break;
+		}
+		else if (0 == strcmp(cmdBuf, "login"))
+		{
+			Login login;
+			strcpy(login.userName, "刘德华");
+			strcpy(login.password, "123456");
+			send(_sock, (const char*)&login, sizeof(Login), 0);
+		}
+		else if (0 == strcmp(cmdBuf, "loginout"))
+		{
+			Loginout loginout;
+			strcpy(loginout.userName, "刘德华");
+			send(_sock, (const char*)&loginout, sizeof(Loginout), 0);
+		}
+		else
+		{
+			printf("输入命令错误\n");
+		}
+	}
+}
+
 int main()
 {
 	// 启动Windows socket 2.x环境
@@ -158,8 +194,13 @@ int main()
 		printf("连接socket成功\n");
 	}
 
+	// 启动线程
+	std::thread t1(cmdThread, _sock);
+	t1.detach(); // 与主线程分离
+	g_bRun = true;
+
 	// 循环输入请求命令
-	while (true)
+	while (g_bRun)
 	{
 		fd_set fdReads;
 		FD_ZERO(&fdReads);
@@ -183,13 +224,7 @@ int main()
 			}
 		}
 
-		printf("空闲时间处理其他业务\n");
-		Login login;
-		strcpy(login.userName, "刘德华");
-		strcpy(login.password, "123456");
-		send(_sock, (const char*)&login, sizeof(Login), 0);
-
-		Sleep(1000);
+		//printf("空闲时间处理其他业务\n");
 	}
 
 	// 7.关闭套接字

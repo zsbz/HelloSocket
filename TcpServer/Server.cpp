@@ -92,6 +92,7 @@ int processor(SOCKET _clientSock)
 	// 5.接收客户端数据		先接收头，通过头来判断接收的什么命令
 	int nLen = recv(_clientSock, szRecv, sizeof(DataHeader), 0);
 	DataHeader *header = (DataHeader *)szRecv;
+
 	if (nLen <= 0)
 	{
 		printf("客户端<Socket=%d>退出，任务结束\n", _clientSock);
@@ -169,20 +170,20 @@ int main()
 
 	while (true)
 	{
-		fd_set fdRead; // 创建可读的socket集合
-		fd_set fdWrite; // 可写的socket集合
-		fd_set fdExcp; // 有异常的socket集合
+		fd_set fdRead; // 创建可读的描述符(socket)集合
+		fd_set fdWrite; // 可写的描述符(socket)集合
+		fd_set fdExcp; // 有异常的描述符(socket)集合
 
 		// FD_ZERO 清空集合
 		FD_ZERO(&fdRead);
 		FD_ZERO(&fdWrite);
 		FD_ZERO(&fdExcp);
 
-		FD_SET(_serverSock, &fdRead); // 把服务器socket放入fdRead集合
+		FD_SET(_serverSock, &fdRead); // 把描述符(socket)放入fdRead集合
 		FD_SET(_serverSock, &fdWrite);
 		FD_SET(_serverSock, &fdExcp);
 
-		for (int n = (int)g_clients.size() - 1; n >= 0 ; --n)
+		for (int n = (int)g_clients.size() - 1; n >= 0; --n)
 		{
 			FD_SET(g_clients[n], &fdRead);
 		}
@@ -199,7 +200,7 @@ int main()
 			break;
 		}
 
-		// 判断服务器socket是在可读的socket集合中（是否有数据需要接收）
+		// 判断描述符(socket)是在可读的socket集合中（是否有数据需要接收）
 		// 在调用select()函数后，用FD_ISSET来检测fd是否在set集合中，当检测到fd在set中则返回真，否则，返回假（0）
 		if (FD_ISSET(_serverSock, &fdRead))
 		{
@@ -215,15 +216,17 @@ int main()
 			{
 				printf("错误，接收到无效的客户端socket\n");
 			}
-
-			for (int n = (int)g_clients.size() - 1; n >= 0; --n)
+			else
 			{
-				NewUserJoin userJoin;
-				send(g_clients[n], (const char *)&userJoin, sizeof(NewUserJoin), 0);
+				for (int n = (int)g_clients.size() - 1; n >= 0; --n)
+				{
+					NewUserJoin userJoin;
+					send(g_clients[n], (const char *)&userJoin, sizeof(NewUserJoin), 0);
+				}
+				// 储存新加入的客户端
+				g_clients.push_back(_clientSock);
+				printf("新客户端加入：socket = %d, IP = %s \n", (int)_clientSock, inet_ntoa(clientAddr.sin_addr));
 			}
-			// 储存新加入的客户端
-			g_clients.push_back(_clientSock);
-			printf("新客户端加入：socket = %d, IP = %s \n", (int)_clientSock, inet_ntoa(clientAddr.sin_addr));
 		}
 
 		// 处理可读的客户端数据
