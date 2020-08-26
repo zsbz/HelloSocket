@@ -1,0 +1,4 @@
+﻿  Client.cpp
+d:\project\c++project\hellosocket\easytcpclient\easytcpclient.hpp(128): warning C4715: “EasyTcpClient::RecvData”: 不是所有的控件路径都返回值
+  EasyTcpClient.vcxproj -> D:\Project\C++Project\HelloSocket\EasyTcpClient\Debug\EasyTcpClient.exe
+  EasyTcpClient.vcxproj -> D:\Project\C++Project\HelloSocket\EasyTcpClient\Debug\EasyTcpClient.pdb (Full PDB)
