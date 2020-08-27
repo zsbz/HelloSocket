@@ -23,16 +23,16 @@
 
 class EasyTcpClient
 {
-	SOCKET _sock = INVALID_SOCKET;
+	SOCKET _sock;
 public:
 	EasyTcpClient()
 	{
-
+		_sock = INVALID_SOCKET;
 	}
 
 	virtual ~EasyTcpClient()
 	{
-
+		closeSocket();
 	}
 
 	// 初始化socket
@@ -44,12 +44,12 @@ public:
 		WSADATA dat;
 		WSAStartup(ver, &dat);
 #endif
-		// 1.建立socket
+
 		// 之前已经初始化，关闭原来的
 		if (INVALID_SOCKET != _sock)
 		{
 			printf("<socket=%d>关闭旧的socket\n", _sock);
-			close();
+			closeSocket();
 		}
 
 		_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -93,7 +93,7 @@ public:
 	}
 
 	// 关闭socket
-	void close()
+	void closeSocket()
 	{
 		// 关闭Win Sock2.x环境
 		if (_sock != INVALID_SOCKET)
@@ -127,8 +127,8 @@ public:
 		onNetMsg(header);
 	}
 
-	// 响应网络数据
-	void onNetMsg(DataHeader *header)
+	// 响应网络数据  这里用虚函数，假如需要处理其他类型的数据，比如查询商品等可以继承该类，然后实现这个虚函数
+	virtual void onNetMsg(DataHeader *header)
 	{
 		switch (header->cmd)
 		{

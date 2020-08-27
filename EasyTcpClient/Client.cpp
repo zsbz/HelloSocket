@@ -19,7 +19,7 @@ void cmdThread(EasyTcpClient *client)
 		scanf("%s", cmdBuf);
 		if (0 == strcmp(cmdBuf, "exit"))
 		{
-			client->close();
+			client->closeSocket();
 			printf("退出cmdThread线程\n");
 			break;
 		}
@@ -48,27 +48,27 @@ int main()
 	EasyTcpClient client;
 	client.connecttion("127.0.0.1", 4567);
 
-	EasyTcpClient client2;
-	client2.connecttion("127.0.0.1", 4567);
+	//EasyTcpClient client2;
+	//client2.connecttion("127.0.0.1", 4567);
 
 	// 启动线程
 	std::thread t1(cmdThread, &client);
 	t1.detach(); // 与主线程分离
 
-	// 启动线程
-	std::thread t2(cmdThread, &client2);
-	t2.detach(); // 与主线程分离
+	//// 启动线程
+	//std::thread t2(cmdThread, &client2);
+	//t2.detach(); // 与主线程分离
 
 	// 循环输入请求命令
-	while (client.isRun() || client2.isRun())
+	while (client.isRun())
 	{
 		client.onRun();
-		client2.onRun();
+		//client2.onRun();
 		//printf("空闲时间处理其他业务\n");
 	}
 
-	client.close();
-	client2.close();
+	client.closeSocket();
+	//client2.closeSocket();
 
 	printf("已退出");
 	getchar();
