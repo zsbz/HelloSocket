@@ -24,7 +24,8 @@ struct Login : public DataHeader
 		dataLength = sizeof(Login);
 		cmd = CMD_LOGIN;
 	}
-	char userName[32];
+	char userName[1032]; // 测试大量数据发送
+	//char userName[32];
 	char password[32];
 };
 

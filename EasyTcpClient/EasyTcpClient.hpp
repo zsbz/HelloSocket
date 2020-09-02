@@ -108,23 +108,57 @@ public:
 		}
 	}
 
+	// 接收缓冲区最小单元大小
+#define RECV_BUFF_SIZE 10240
+	// 接收缓冲区
+	char _szRecv[RECV_BUFF_SIZE] = {};
+	// 第二缓冲区，消息缓冲区
+	char _szMsgBuf[RECV_BUFF_SIZE * 10] = {};
+	// 消息缓冲区数据尾部位置
+	int _lastPos = 0;
+
 	// 接收数据  处理粘包 拆分包
 	int RecvData(SOCKET _sock)
 	{
-		// 缓冲区
-		char szRecv[1024] = {};
-
-		// 5.接收客户端数据		先接收头，通过头来判断接收的什么命令
-		int nLen = recv(_sock, szRecv, sizeof(DataHeader), 0);
-		DataHeader *header = (DataHeader *)szRecv;
+		// 接收数据  系统socket有一个默认缓冲区，这里使用RECV_BUFF_SIZE，每次把系统缓冲区的数据全部取出来，避免消息堵塞
+		int nLen = recv(_sock, _szRecv, RECV_BUFF_SIZE, 0);
+		
 		if (nLen <= 0)
 		{
 			printf("与服务器断开连接，任务结束\n");
 			return -1;
 		}
 
-		recv(_sock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
-		onNetMsg(header);
+		// 将收取的数据拷贝到消息缓冲区尾部
+		memcpy(_szMsgBuf + _lastPos, _szRecv, nLen);
+		// 信息缓冲区的数据尾部位置后移
+		_lastPos += nLen;
+
+		// 判断消息缓冲区的数据长度大于等于消息头DataHeader长度，大于消息头长度就可以转成消息头,然后再次循环
+		while (_lastPos >= sizeof(DataHeader))
+		{
+			// 转成消息头，就可以根据消息头知道消息的长度
+			DataHeader *header = (DataHeader *)_szMsgBuf;
+			// 判断消息缓冲区的全部数据大于等于信息长度，大于就表示该包以及全部接收到了
+			if (_lastPos >= header->dataLength)
+			{
+				// 剩余未处理消息缓冲区数据的长度
+				int nSize = _lastPos - header->dataLength;
+				// 处理网络消息
+				onNetMsg(header);
+				// 将消息缓冲区剩余未处理数据前移
+				memcpy(_szMsgBuf, _szMsgBuf + header->dataLength, nSize);
+				// 消息缓冲区的数据尾部位置前移
+				_lastPos = nSize;
+			}
+			else
+			{
+				// 消息缓冲区剩余数据不够一条完整消息
+				break;
+			}
+		}
+
+		return 0;
 	}
 
 	// 响应网络数据  这里用虚函数，假如需要处理其他类型的数据，比如查询商品等可以继承该类，然后实现这个虚函数
@@ -135,24 +169,29 @@ public:
 		case CMD_LOGIN_RESULT:
 		{
 			LoginResult *loginRes = (LoginResult*)header;
-			printf("收到服务器消息：登录结果, 数据长度：%d\n", loginRes->dataLength);
+			printf("<scoket=%d>收到服务器消息：登录结果, 数据长度：%d\n", _sock,loginRes->dataLength);
 		}
 		break;
 		case CMD_LOGINOUT_RESULT:
 		{
 			LoginoutResult *loginoutRes = (LoginoutResult*)header;
-			printf("收到服务器消息：登出结果, 数据长度：%d\n", loginoutRes->dataLength);
+			printf("<scoket=%d>收到服务器消息：登出结果, 数据长度：%d\n", _sock, loginoutRes->dataLength);
 		}
 		break;
 		case CMD_NEW_USER_JOIN:
 		{	
 			NewUserJoin *userJoin = (NewUserJoin*)header;
-			printf("收到服务器消息：新用户加入, 数据长度：%d\n", userJoin->dataLength);
+			printf("<scoket=%d>收到服务器消息：新用户加入, 数据长度：%d\n", _sock, userJoin->dataLength);
+		}
+		break;
+		case CMD_ERROR:
+		{
+			printf("<scoket=%d>收到服务器错误消息，数据长度：%d\n", _sock, header->dataLength);
 		}
 		break;
 		default:
 		{
-			DataHeader header = { 0, CMD_ERROR };
+			printf("<scoket=%d>收到未定义消息，数据长度：%d\n", _sock, header->dataLength);
 		}
 		break;
 		}

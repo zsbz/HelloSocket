@@ -275,7 +275,7 @@ public:
 	int RecvData(SOCKET _clientSock)
 	{
 		// 缓冲区
-		char szRecv[1024] = {};
+		char szRecv[10240] = {};
 
 		// 5.接收客户端数据		先接收头，通过头来判断接收的什么命令
 		int nLen = recv(_clientSock, szRecv, sizeof(DataHeader), 0);
@@ -306,7 +306,7 @@ public:
 
 			// 返回登录结果
 			LoginResult result;
-			send(_clientSock, (const char *)&result, sizeof(LoginResult), 0);
+			sendData(_clientSock, &result);
 		}
 		break;
 		case CMD_LOGINOUT:
@@ -316,13 +316,13 @@ public:
 
 			// 返回登出结果
 			LoginoutResult result;
-			send(_clientSock, (const char *)&result, sizeof(LoginoutResult), 0);
+			sendData(_clientSock, &result);
 		}
 		break;
 		default:
 		{
-			DataHeader header = { 0, CMD_ERROR };
-			send(_clientSock, (const char *)&header, sizeof(DataHeader), 0);
+			DataHeader tempHeader = { 0, CMD_ERROR };
+			sendData(_clientSock, &tempHeader);
 		}
 		break;
 		}

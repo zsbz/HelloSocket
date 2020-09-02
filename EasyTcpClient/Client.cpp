@@ -16,7 +16,11 @@ void cmdThread(EasyTcpClient *client)
 	while (true)
 	{
 		char cmdBuf[256] = {};
-		scanf("%s", cmdBuf);
+		//scanf("%s", cmdBuf);
+
+		// 一直发送请求，测试大量数据时是否粘包
+		memcpy(cmdBuf, "login", sizeof("login"));
+
 		if (0 == strcmp(cmdBuf, "exit"))
 		{
 			client->closeSocket();
